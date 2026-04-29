@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Pomodoro Garden — a focus timer that grows a garden. Every session completed grows a new plant.">
+<meta property="og:title" content="Pomodoro Garden">
+<meta property="og:description" content="Grow a garden one focus session at a time.">
+<meta name="theme-color" content="#5c3d1e">
+<title>Pomodoro Garden 🌸</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --soil: #5c3d1e;
+  --soil-light: #7a5230;
+  --cream: #fdf8f0;
+  --text: #2c1810;
+  --text-light: #6b4c38;
+  --card-bg: rgba(253,248,240,0.93);
+  --shadow: rgba(44,24,16,0.18);
+  --accent: #c8622a;
+}
+
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: 'Lora', Georgia, serif;
+  background: linear-gradient(180deg, #bddff5 0%, #d8efdc 35%, #b8deb0 60%, #8cc87a 100%);
+  min-height: 100vh;
+  color: var(--text);
+  position: relative;
+  cursor: default;
+}
+
+/* ── SKY DECORATION ── */
+.sun {
+  position: fixed;
+  top: 24px; right: 48px;
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #fff5a0 0%, #ffd84a 55%, #ffb820 100%);
+  box-shadow: 0 0 0 8px rgba(255,220,80,0.15), 0 0 40px rgba(255,200,50,0.4);
+  z-index: 1;
+  animation: sunFloat 9s ease-in-out infinite;
+}
+@keyframes sunFloat {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.cloud {
+  position: fixed;
+  z-index: 1;
+  pointer-events: none;
+  animation: cloudDrift linear infinite;
+}
+.cloud-body {
+  background: rgba(255,255,255,0.82);
+  border-radius: 50px;
+  position: relative;
+}
+.cloud-puff {
+  position: absolute;
+  background: rgba(255,255,255,0.82);
+  border-radius: 50%;
+}
+@keyframes cloudDrift {
+  from { transform: translateX(-250px); }
+  to   { transform: translateX(calc(100vw + 250px)); }
+}
+
+/* ── GROUND ── */
+.ground {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 130px;
+  background: linear-gradient(180deg, #88c876 0%, #64b852 18%, #5c3d1e 44%, #3d2510 100%);
+  z-index: 2;
+  pointer-events: none;
+}
+.ground-grass {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 28px;
+  overflow: hidden;
+}
+
+/* ── PLANTS AREA ── */
+.plants-area {
+  position: fixed;
+  bottom: 86px;
+  left: 0; right: 0;
+  height: 220px;
+  z-index: 10;
+  pointer-events: none;
+}
+.plant-wrapper {
+  position: absolute;
+  bottom: 0;
+  transform-origin: bottom center;
+  pointer-events: all;
+  cursor: pointer;
+  transition: filter 0.2s;
+}
+.plant-wrapper:hover { filter: brightness(1.1) drop-shadow(0 -4px 8px rgba(100,180,80,0.4)); }
+.plant-wrapper.new {
+  animation: plantGrow 0.9s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes plantGrow {
+  from { transform: scaleY(0) scaleX(0.5); opacity: 0; }
+  to   { transform: scaleY(1) scaleX(1); opacity: 1; }
+}
+
+/* ── TIMER WIDGET ── */
+.timer-widget {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: var(--card-bg);
+  border: 1.5px solid rgba(92,61,30,0.22);
+  border-radius: 24px;
+  padding: 20px 32px 16px;
+  min-width: 320px;
+  max-width: 360px;
+  width: 92vw;
+  box-shadow: 0 10px 40px var(--shadow);
+  backdrop-filter: blur(10px);
+  text-align: center;
+  user-select: none;
+}
+
+.timer-mode-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--text-light);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+/* Ring + display */
+.ring-wrap {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ring-wrap svg {
+  position: absolute;
+  top: 0; left: 0;
+  transform: rotate(-90deg);
+}
+.ring-bg  { fill: none; stroke: rgba(92,61,30,0.1); stroke-width: 3; }
+.ring-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 402.1;
+  stroke-dashoffset: 402.1;
+  transition: stroke-dashoffset 0.95s linear;
+}
+.timer-display {
+  font-family: 'DM Mono', monospace;
+  font-size: 48px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+/* Session pills */
+.pills {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.pill {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  padding: 5px 11px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(92,61,30,0.2);
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-light);
+  transition: all 0.18s;
+  line-height: 1;
+}
+.pill:hover  { background: rgba(92,61,30,0.07); }
+.pill.active { background: var(--soil); color: var(--cream); border-color: var(--soil); }
+
+/* Custom input row */
+.custom-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.custom-row label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text-light);
+  letter-spacing: 0.06em;
+}
+.custom-row input {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  width: 50px;
+  padding: 4px 6px;
+  border: 1.5px solid rgba(92,61,30,0.22);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.5);
+  color: var(--text);
+  text-align: center;
+  outline: none;
+}
+.custom-row input:focus { border-color: var(--soil); }
+
+/* Controls */
+.controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.btn {
+  font-family: 'Lora', serif;
+  font-size: 13px;
+  padding: 9px 22px;
+  border-radius: 30px;
+  border: 1.5px solid var(--soil);
+  cursor: pointer;
+  transition: all 0.18s;
+  background: transparent;
+  color: var(--soil);
+  line-height: 1;
+}
+.btn:hover { background: rgba(92,61,30,0.07); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn.primary { background: var(--soil); color: var(--cream); }
+.btn.primary:hover { background: var(--soil-light); }
+.btn.sm { padding: 6px 14px; font-size: 11px; }
+
+/* Plant preview badge */
+.plant-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text-light);
+  letter-spacing: 0.04em;
+}
+
+/* ── TOOLTIP ── */
+.tooltip {
+  position: fixed;
+  display: none;
+  background: var(--card-bg);
+  border: 1.5px solid rgba(92,61,30,0.18);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 12px;
+  box-shadow: 0 6px 20px var(--shadow);
+  z-index: 1000;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  min-width: 140px;
+}
+.tooltip .t-name { font-weight: 600; font-size: 13px; margin-bottom: 3px; }
+.rarity-badge {
+  display: inline-block;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 8px;
+  margin-bottom: 5px;
+}
+.r-common   { background: #e4f5e4; color: #2d6e2d; }
+.r-uncommon { background: #ddeef8; color: #1a5580; }
+.r-rare     { background: #ede4f8; color: #5c27a8; }
+.r-exotic   { background: #fff3e0; color: #9c5f00; }
+
+/* ── COMPLETION OVERLAY ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30,16,8,0.65);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.35s ease;
+  backdrop-filter: blur(6px);
+}
+.overlay.hidden { display: none; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.completion-card {
+  background: var(--cream);
+  border-radius: 28px;
+  padding: 44px 52px 36px;
+  text-align: center;
+  max-width: 400px;
+  width: 92vw;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.32);
+  animation: slideUp 0.4s cubic-bezier(0.34,1.2,0.64,1) both;
+}
+@keyframes slideUp {
+  from { transform: translateY(48px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.completion-card h2 {
+  font-size: 30px;
+  color: var(--soil);
+  margin-bottom: 6px;
+}
+.completion-card .sub {
+  font-style: italic;
+  color: var(--text-light);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+.plant-reveal-wrap {
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: bloomIn 0.9s cubic-bezier(0.34,1.56,0.64,1) 0.15s both;
+}
+@keyframes bloomIn {
+  from { transform: scale(0) rotate(-18deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0deg);   opacity: 1; }
+}
+.completion-plant-name {
+  font-style: italic;
+  color: var(--text-light);
+  font-size: 14px;
+  margin: 8px 0 20px;
+}
+
+/* ── STATS BAR ── */
+.stats-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 200;
+  height: 46px;
+  background: rgba(36,20,8,0.88);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 0 20px;
+}
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: rgba(253,248,240,0.65);
+}
+.stat strong {
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ── EMPTY STATE ── */
+.empty-hint {
+  position: fixed;
+  bottom: 118px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  font-style: italic;
+  color: rgba(44,24,16,0.38);
+  font-size: 13px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ── BIRDS ── */
+.bird {
+  position: fixed;
+  z-index: 5;
+  pointer-events: none;
+  animation: birdFly linear infinite;
+}
+@keyframes birdFly {
+  0%   { transform: translateX(-80px)  translateY(0); }
+  25%  { transform: translateX(25vw)   translateY(-28px); }
+  50%  { transform: translateX(50vw)   translateY(12px); }
+  75%  { transform: translateX(75vw)   translateY(-16px); }
+  100% { transform: translateX(calc(100vw + 80px)) translateY(0); }
+}
+
+/* ── BUTTERFLY ── */
+.butterfly {
+  position: fixed;
+  z-index: 11;
+  pointer-events: none;
+  animation: butterflyFloat 6s ease-in-out infinite;
+}
+@keyframes butterflyFloat {
+  0%,100% { transform: translateY(0) rotate(-3deg); }
+  50%      { transform: translateY(-20px) rotate(3deg); }
+}
+
+/* ── BREAK MODE ── */
+.break-banner {
+  position: fixed;
+  top: 20px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 101;
+  background: rgba(46,125,50,0.92);
+  color: #e8f5e9;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  padding: 8px 20px;
+  border-radius: 30px;
+  display: none;
+  white-space: nowrap;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 480px) {
+  .timer-widget { padding: 16px 20px 14px; min-width: unset; }
+  .timer-display { font-size: 40px; }
+  .stats-bar { gap: 16px; }
+  .stat { font-size: 9px; }
+  .stat strong { font-size: 11px; }
+  .completion-card { padding: 32px 28px 28px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Sky decorations -->
+<div class="sun"></div>
+
+<!-- Ground -->
+<div class="ground">
+  <div class="ground-grass"></div>
+</div>
+
+<!-- Plants layer -->
+<div class="plants-area" id="plantsArea"></div>
+
+<!-- Empty hint -->
+<div class="empty-hint" id="emptyHint">Complete a session to grow your first plant ✿</div>
+
+<!-- Timer widget -->
+<div class="timer-widget" id="timerWidget">
+  <div class="timer-mode-label" id="modeLabel">Standard Pomodoro</div>
+
+  <div class="ring-wrap">
+    <svg width="140" height="140" viewBox="0 0 140 140">
+      <circle class="ring-bg"  cx="70" cy="70" r="64"/>
+      <circle class="ring-fill" id="ringFill" cx="70" cy="70" r="64"/>
+    </svg>
+    <div class="timer-display" id="timerDisplay">25:00</div>
+  </div>
+
+  <div class="pills" id="pillsRow">
+    <button class="pill"        data-min="15" onclick="selectSession(15)">15 min</button>
+    <button class="pill active" data-min="25" onclick="selectSession(25)">25 min</button>
+    <button class="pill"        data-min="45" onclick="selectSession(45)">45 min</button>
+    <button class="pill"        data-min="60" onclick="selectSession(60)">60 min</button>
+  </div>
+
+  <div class="custom-row">
+    <label for="customInput">custom:</label>
+    <input type="number" id="customInput" min="1" max="180" placeholder="min" oninput="handleCustom(this.value)">
+    <label>min</label>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary" id="startBtn" onclick="toggleTimer()">Start</button>
+    <button class="btn sm"      id="resetBtn" onclick="resetTimer()">Reset</button>
+  </div>
+
+  <div class="plant-badge" id="plantBadge">🌱 Wildflower awaits</div>
+</div>
+
+<!-- Break banner -->
+<div class="break-banner" id="breakBanner">☕ break time — garden is resting</div>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip">
+  <div class="t-name" id="ttName"></div>
+  <div class="rarity-badge" id="ttRarity"></div>
+  <div style="font-size:11px;color:var(--text-light);margin-top:3px" id="ttMeta"></div>
+</div>
+
+<!-- Completion overlay -->
+<div class="overlay hidden" id="overlay">
+  <div class="completion-card">
+    <h2>Session complete!</h2>
+    <p class="sub" id="cSub"></p>
+    <div class="plant-reveal-wrap" id="cPlant"></div>
+    <div class="rarity-badge" id="cRarity" style="margin-bottom:4px"></div>
+    <div class="completion-plant-name" id="cName"></div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btn primary" onclick="closeOverlay()">View my garden</button>
+    </div>
+  </div>
+</div>
+
+<!-- Stats bar -->
+<div class="stats-bar">
+  <div class="stat">🌸 <strong id="sSessions">0</strong>&nbsp;plants</div>
+  <div class="stat">⏱ <strong id="sTime">0h 0m</strong>&nbsp;focused</div>
+  <div class="stat">🔥 <strong id="sStreak">0</strong>&nbsp;day streak</div>
+  <div class="stat" id="sRareWrap" style="display:none">✦ <strong id="sRare">0</strong>&nbsp;rare</div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  DATA & CONSTANTS
+// ─────────────────────────────────────────────
+const RARITY = min => min <= 15 ? 'common' : min <= 25 ? 'uncommon' : min <= 45 ? 'rare' : 'exotic';
+const MODE_NAMES = { common:'Quick Sprout', uncommon:'Standard Pomodoro', rare:'Deep Work', exotic:'Flow State' };
+const BADGE_TEXT = { common:'🌿 Seedling awaits', uncommon:'🌸 Wildflower awaits', rare:'🌻 Rare bloom awaits', exotic:'🌺 Exotic bloom awaits' };
+const RARITY_LABELS = { common:'Common', uncommon:'Uncommon', rare:'Rare ✦', exotic:'Exotic ✦✦' };
+const RARITY_CLASS = { common:'r-common', uncommon:'r-uncommon', rare:'r-rare', exotic:'r-exotic' };
+
+const PLANT_NAMES = {
+  common:   ['Clover','Daisy','Dandelion','Grass Tuft','Moss Sprig','Little Fern','Wild Violet','Wood Sorrel'],
+  uncommon: ['Wild Poppy','Cornflower','Chamomile','Lavender Sprig','Buttercup','Forget-me-not','Ox-eye Daisy','Borage'],
+  rare:     ['Sunflower','Hollyhock','Foxglove','Delphinium','Peony Bud','Tiger Lily','Lupine','Columbine'],
+  exotic:   ['Moon Orchid','Bird of Paradise','Passion Flower','Black Dahlia','Jade Vine','Fire Lily','Queen of the Night','Corpse Flower']
+};
+
+const WILDFLOWER_COLORS = [
+  ['#e85d8a','#f5a0c0'], ['#4a7ee0','#90b4f5'], ['#e06030','#f0a070'],
+  ['#8050c8','#c090f0'], ['#22a060','#70d090'], ['#e8b020','#f5d560'],
+  ['#c0308a','#e880c0'], ['#3090c0','#70c0e0']
+];
+const ORCHID_COLORS = ['#cc44aa','#5544cc','#cc4444','#44aacc','#8844cc','#cc8844','#aa44cc','#44cc88'];
+
+// ─────────────────────────────────────────────
+//  SVG PLANT GENERATORS
+// ─────────────────────────────────────────────
+function svgSprout(seed) {
+  const greens = ['#4a9b3e','#2e7d32','#558b2f','#1b5e20','#33691e'];
+  const c = greens[seed % greens.length];
+  return `<svg width="38" height="58" viewBox="0 0 38 58" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+    <line x1="19" y1="56" x2="19" y2="28" stroke="${c}" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M19 36 Q11 26 7 18 Q15 20 19 28" fill="${c}" opacity="0.85"/>
+    <path d="M19 32 Q27 22 31 14 Q23 16 19 24" fill="${c}" opacity="0.7"/>
+    <ellipse cx="19" cy="28" rx="4" ry="4" fill="${c}"/>
+  </svg>`;
+}
+
+function svgWildflower(seed) {
+  const [petal, stem] = WILDFLOWER_COLORS[seed % WILDFLOWER_COLORS.length];
+  const cx = 28, cy = 20, n = 6;
+  let petals = '';
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const px = cx + Math.cos(a) * 13, py = cy + Math.sin(a) * 13;
+    petals += `<ellipse cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" rx="7" ry="4.5" fill="${petal}" opacity="0.92" transform="rotate(${((a * 180 / Math.PI) + 90).toFixed(1)} ${px.toFixed(1)} ${py.toFixed(1)})"/>`;
+  }
+  return `<svg width="56" height="88" viewBox="0 0 56 88" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+    <path d="M28 86 Q24 58 26 40" stroke="${stem}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M26 64 Q16 54 8 50 Q14 60 24 64" fill="${stem}" opacity="0.7"/>
+    ${petals}
+    <circle cx="${cx}" cy="${cy}" r="8.5" fill="#f5c542"/>
+    <circle cx="${cx}" cy="${cy}" r="5.5" fill="#d49010"/>
+  </svg>`;
+}
+
+function svgSunflower() {
+  const cx = 38, cy = 34, n = 14;
+  let petals = '';
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const px = cx + Math.cos(a) * 23, py = cy + Math.sin(a) * 23;
+    petals += `<ellipse cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" rx="10" ry="5.5" fill="#f5a820" opacity="0.93" transform="rotate(${((a * 180 / Math.PI) + 90).toFixed(1)} ${px.toFixed(1)} ${py.toFixed(1)})"/>`;
+  }
+  const dots = Array.from({length:12},(_,i)=>{
+    const a=(i/12)*Math.PI*2;
+    return `<circle cx="${(cx+Math.cos(a)*9).toFixed(1)}" cy="${(cy+Math.sin(a)*9).toFixed(1)}" r="2" fill="#f5a820" opacity="0.45"/>`;
+  }).join('');
+  return `<svg width="80" height="130" viewBox="0 0 80 130" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+    <path d="M38 128 Q34 82 36 56" stroke="#4a7a28" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M36 92 Q22 80 12 76 Q20 88 34 92" fill="#4a7a28" opacity="0.75"/>
+    <path d="M37 82 Q50 70 58 64 Q48 74 37 82" fill="#4a7a28" opacity="0.6"/>
+    ${petals}
+    <circle cx="${cx}" cy="${cy}" r="19" fill="#5c3010"/>
+    <circle cx="${cx}" cy="${cy}" r="13.5" fill="#3a1e08"/>
+    ${dots}
+  </svg>`;
+}
+
+function svgOrchid(seed) {
+  const c = ORCHID_COLORS[seed % ORCHID_COLORS.length];
+  const light = c + 'cc';
+  const dots = Array.from({length:10},(_,i)=>{
+    const a=(i/10)*Math.PI*2, r=8;
+    return `<circle cx="${(45+Math.cos(a)*r).toFixed(1)}" cy="${(44+Math.sin(a)*r).toFixed(1)}" r="1.5" fill="${c}" opacity="0.4"/>`;
+  }).join('');
+  return `<svg width="90" height="148" viewBox="0 0 90 148" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+    <path d="M45 146 Q40 100 42 70" stroke="#3a6e32" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M42 102 Q28 90 18 84 Q26 96 40 102" fill="#3a6e32" opacity="0.7"/>
+    <path d="M43 90 Q56 78 64 72 Q54 82 43 90" fill="#3a6e32" opacity="0.6"/>
+    <ellipse cx="45" cy="36" rx="28" ry="14" fill="${c}" opacity="0.28" transform="rotate(-25 45 36)"/>
+    <ellipse cx="45" cy="36" rx="28" ry="14" fill="${c}" opacity="0.28" transform="rotate(25 45 36)"/>
+    <ellipse cx="20" cy="44" rx="17" ry="9"  fill="${c}" opacity="0.88" transform="rotate(-42 20 44)"/>
+    <ellipse cx="70" cy="44" rx="17" ry="9"  fill="${c}" opacity="0.88" transform="rotate(42 70 44)"/>
+    <ellipse cx="30" cy="21" rx="15" ry="8"  fill="${light}" opacity="0.95" transform="rotate(-22 30 21)"/>
+    <ellipse cx="60" cy="21" rx="15" ry="8"  fill="${light}" opacity="0.95" transform="rotate(22 60 21)"/>
+    <ellipse cx="45" cy="44" rx="13" ry="7.5" fill="${light}" opacity="0.98"/>
+    <circle cx="45" cy="44" r="6.5" fill="white" opacity="0.92"/>
+    <circle cx="45" cy="44" r="3.5" fill="${c}"/>
+    ${dots}
+    <circle cx="44" cy="43" r="1.5" fill="white" opacity="0.8"/>
+  </svg>`;
+}
+
+function makePlantSVG(min, seed) {
+  if (min <= 15) return svgSprout(seed);
+  if (min <= 25) return svgWildflower(seed);
+  if (min <= 45) return svgSunflower();
+  return svgOrchid(seed);
+}
+
+function plantDimensions(min) {
+  if (min <= 15) return [38, 58];
+  if (min <= 25) return [56, 88];
+  if (min <= 45) return [80, 130];
+  return [90, 148];
+}
+
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+let selectedMin = 25;
+let timeLeft    = 25 * 60;
+let totalTime   = 25 * 60;
+let running     = false;
+let ticker      = null;
+let onBreak     = false;
+
+let garden = [];
+let stats  = { totalMin: 0, streak: 0, lastDate: '' };
+
+function loadData() {
+  try { garden = JSON.parse(localStorage.getItem('pg_garden') || '[]'); } catch(e) { garden = []; }
+  try { stats  = JSON.parse(localStorage.getItem('pg_stats')  || '{}'); } catch(e) {}
+  stats.totalMin = stats.totalMin || 0;
+  stats.streak   = stats.streak   || 0;
+  stats.lastDate = stats.lastDate || '';
+}
+function saveData() {
+  localStorage.setItem('pg_garden', JSON.stringify(garden));
+  localStorage.setItem('pg_stats',  JSON.stringify(stats));
+}
+
+// ─────────────────────────────────────────────
+//  TIMER
+// ─────────────────────────────────────────────
+function selectSession(min, isCustom) {
+  selectedMin = min;
+  if (!isCustom) document.getElementById('customInput').value = '';
+  document.querySelectorAll('.pill').forEach(p => {
+    p.classList.toggle('active', parseInt(p.dataset.min) === min && !isCustom);
+  });
+  resetTimer();
+  updateBadge();
+}
+function handleCustom(val) {
+  const m = parseInt(val);
+  if (!m || m < 1) return;
+  selectSession(m, true);
+}
+
+function updateBadge() {
+  const r = RARITY(selectedMin);
+  document.getElementById('modeLabel').textContent  = MODE_NAMES[r];
+  document.getElementById('plantBadge').textContent = BADGE_TEXT[r];
+}
+
+function updateDisplay() {
+  const m = Math.floor(timeLeft / 60).toString().padStart(2,'0');
+  const s = (timeLeft % 60).toString().padStart(2,'0');
+  document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+  // Ring
+  const circ = 2 * Math.PI * 64;
+  const progress = Math.max(0, Math.min(1, 1 - timeLeft / totalTime));
+  document.getElementById('ringFill').style.strokeDashoffset = circ - progress * circ;
+  document.title = `${m}:${s} — Pomodoro Garden 🌸`;
+}
+
+function toggleTimer() {
+  if (running) {
+    running = false;
+    clearInterval(ticker);
+    document.getElementById('startBtn').textContent = 'Resume';
+  } else {
+    running = true;
+    document.getElementById('startBtn').textContent = 'Pause';
+    ticker = setInterval(() => {
+      timeLeft--;
+      updateDisplay();
+      if (timeLeft <= 0) {
+        clearInterval(ticker);
+        running = false;
+        completeSession();
+      }
+    }, 1000);
+  }
+}
+
+function resetTimer() {
+  running = false;
+  clearInterval(ticker);
+  timeLeft  = selectedMin * 60;
+  totalTime = selectedMin * 60;
+  document.getElementById('startBtn').textContent = 'Start';
+  updateDisplay();
+}
+
+// ─────────────────────────────────────────────
+//  SESSION COMPLETE
+// ─────────────────────────────────────────────
+function completeSession() {
+  // Streak
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  if (stats.lastDate !== today) {
+    stats.streak = (stats.lastDate === yesterday) ? stats.streak + 1 : 1;
+    stats.lastDate = today;
+  }
+  stats.totalMin += selectedMin;
+
+  // Build plant
+  const seed   = Math.floor(Math.random() * 100);
+  const rarity = RARITY(selectedMin);
+  const names  = PLANT_NAMES[rarity];
+  const name   = names[Math.floor(Math.random() * names.length)];
+  const svg    = makePlantSVG(selectedMin, seed);
+
+  // X placement — avoid tight clustering
+  const usedX = garden.map(p => p.x);
+  let x, attempts = 0;
+  do {
+    x = 4 + Math.random() * 90;
+    attempts++;
+  } while (attempts < 40 && usedX.some(u => Math.abs(u - x) < 7));
+  x = Math.round(x * 10) / 10;
+
+  const plant = { id: Date.now(), min: selectedMin, svg, name, rarity, x, seed, date: Date.now() };
+  garden.push(plant);
+  saveData();
+
+  showCompletion(plant);
+}
+
+function showCompletion(plant) {
+  const [w, h] = plantDimensions(plant.min);
+  document.getElementById('cSub').textContent = `You grew a new plant after ${plant.min} minutes of focus!`;
+  const wrap = document.getElementById('cPlant');
+  wrap.innerHTML = plant.svg;
+  wrap.style.width  = w + 'px';
+  wrap.style.height = h + 'px';
+  const rb = document.getElementById('cRarity');
+  rb.textContent  = RARITY_LABELS[plant.rarity];
+  rb.className    = `rarity-badge ${RARITY_CLASS[plant.rarity]}`;
+  document.getElementById('cName').textContent = `"${plant.name}"`;
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+function closeOverlay() {
+  document.getElementById('overlay').classList.add('hidden');
+  renderGarden();
+  resetTimer();
+}
+
+// ─────────────────────────────────────────────
+//  GARDEN RENDER
+// ─────────────────────────────────────────────
+function renderGarden() {
+  const area = document.getElementById('plantsArea');
+  area.innerHTML = '';
+  document.getElementById('emptyHint').style.display = garden.length ? 'none' : 'block';
+
+  garden.forEach(plant => {
+    const [w] = plantDimensions(plant.min);
+    const div = document.createElement('div');
+    div.className = 'plant-wrapper';
+    div.style.left  = `calc(${plant.x}% - ${w/2}px)`;
+    div.innerHTML   = plant.svg;
+    div.addEventListener('mouseenter', e => showTooltip(e, plant));
+    div.addEventListener('mouseleave', hideTooltip);
+    div.addEventListener('mousemove',  moveTooltip);
+    area.appendChild(div);
+  });
+
+  updateStats();
+
+  // Butterflies for long streaks
+  if (stats.streak >= 7) addButterflies();
+}
+
+function showTooltip(e, plant) {
+  const tt = document.getElementById('tooltip');
+  document.getElementById('ttName').textContent = plant.name;
+  const rb = document.getElementById('ttRarity');
+  rb.textContent = RARITY_LABELS[plant.rarity];
+  rb.className   = `rarity-badge ${RARITY_CLASS[plant.rarity]}`;
+  const d = new Date(plant.date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
+  document.getElementById('ttMeta').textContent = `${plant.min} min · ${d}`;
+  tt.style.display = 'block';
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  const tt = document.getElementById('tooltip');
+  let lft = e.clientX + 14, top = e.clientY - 50;
+  if (lft + 160 > window.innerWidth)  lft = e.clientX - 170;
+  if (top < 10)                        top = e.clientY + 14;
+  tt.style.left = lft + 'px';
+  tt.style.top  = top + 'px';
+}
+function hideTooltip() {
+  document.getElementById('tooltip').style.display = 'none';
+}
+
+function updateStats() {
+  const h = Math.floor(stats.totalMin / 60);
+  const m = stats.totalMin % 60;
+  document.getElementById('sSessions').textContent = garden.length;
+  document.getElementById('sTime').textContent     = `${h}h ${m}m`;
+  document.getElementById('sStreak').textContent   = stats.streak;
+  const rare = garden.filter(p => p.rarity === 'rare' || p.rarity === 'exotic').length;
+  const rw = document.getElementById('sRareWrap');
+  rw.style.display = rare ? 'flex' : 'none';
+  if (rare) document.getElementById('sRare').textContent = rare;
+}
+
+// ─────────────────────────────────────────────
+//  BUTTERFLIES (streak reward)
+// ─────────────────────────────────────────────
+function addButterflies() {
+  document.querySelectorAll('.butterfly').forEach(b => b.remove());
+  const count = Math.min(stats.streak - 6, 4);
+  for (let i = 0; i < count; i++) {
+    const b = document.createElement('div');
+    b.className = 'butterfly';
+    const colors = ['#e040fb','#ff8a65','#42a5f5','#66bb6a','#ffa726'];
+    const c = colors[i % colors.length];
+    const x = 15 + Math.random() * 70;
+    const y = 20 + Math.random() * 45;
+    b.style.left = x + 'vw';
+    b.style.bottom = y + 'vh';
+    b.style.animationDelay = (Math.random() * 4) + 's';
+    b.innerHTML = `<svg width="28" height="20" viewBox="0 0 28 20" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="8"  cy="9"  rx="7" ry="9"  fill="${c}" opacity="0.78" transform="rotate(-20 8 9)"/>
+      <ellipse cx="20" cy="9"  rx="7" ry="9"  fill="${c}" opacity="0.78" transform="rotate(20 20 9)"/>
+      <ellipse cx="9"  cy="13" rx="5" ry="6"  fill="${c}" opacity="0.55" transform="rotate(-30 9 13)"/>
+      <ellipse cx="19" cy="13" rx="5" ry="6"  fill="${c}" opacity="0.55" transform="rotate(30 19 13)"/>
+      <rect x="13" y="3" width="2" height="14" rx="1" fill="#3e2723" opacity="0.7"/>
+    </svg>`;
+    document.body.appendChild(b);
+  }
+}
+
+// ─────────────────────────────────────────────
+//  CLOUDS & BIRDS (ambient)
+// ─────────────────────────────────────────────
+function addClouds() {
+  const configs = [
+    { w:100, h:30, top:7,  delay:0,  dur:38, puffs:[{w:50,h:50,t:-25,l:15},{w:36,h:36,t:-18,l:50}] },
+    { w: 70, h:22, top:15, delay:15, dur:52, puffs:[{w:36,h:36,t:-18,l:10}] },
+    { w:130, h:36, top:5,  delay:27, dur:44, puffs:[{w:64,h:64,t:-32,l:22},{w:48,h:48,t:-24,l:65}] },
+    { w: 80, h:26, top:20, delay:8,  dur:60, puffs:[{w:42,h:42,t:-21,l:18},{w:32,h:32,t:-16,l:48}] },
+  ];
+  configs.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'cloud';
+    el.style.cssText = `top:${c.top}%;animation-duration:${c.dur}s;animation-delay:-${c.delay}s;`;
+    const body = document.createElement('div');
+    body.className = 'cloud-body';
+    body.style.cssText = `width:${c.w}px;height:${c.h}px;`;
+    c.puffs.forEach(p => {
+      const puff = document.createElement('div');
+      puff.className = 'cloud-puff';
+      puff.style.cssText = `width:${p.w}px;height:${p.h}px;top:${p.t}px;left:${p.l}px;`;
+      body.appendChild(puff);
+    });
+    el.appendChild(body);
+    document.body.appendChild(el);
+  });
+}
+
+function addBirds() {
+  for (let i = 0; i < 3; i++) {
+    const b = document.createElement('div');
+    b.className = 'bird';
+    const top = 8 + Math.random() * 22;
+    const dur = 22 + Math.random() * 28;
+    b.style.cssText = `top:${top}vh;animation-duration:${dur}s;animation-delay:-${Math.random()*dur}s;`;
+    b.innerHTML = `<svg width="26" height="14" viewBox="0 0 26 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M2 9 Q7 2 13 5.5 Q19 2 24 9" stroke="rgba(44,24,16,0.35)" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>`;
+    document.body.appendChild(b);
+  }
+}
+
+// ─────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────
+loadData();
+addClouds();
+addBirds();
+updateBadge();
+updateDisplay();
+renderGarden();
+
+// Keyboard shortcut: Space = start/pause, R = reset
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space')  { e.preventDefault(); toggleTimer(); }
+  if (e.code === 'KeyR')   resetTimer();
+});
+</script>
+</body>
+</html>
